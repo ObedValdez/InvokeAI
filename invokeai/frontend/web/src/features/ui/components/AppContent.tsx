@@ -12,6 +12,7 @@ import { ModelsTabAutoLayout } from 'features/ui/layouts/models-tab-auto-layout'
 import { navigationApi } from 'features/ui/layouts/navigation-api';
 import { QueueTabAutoLayout } from 'features/ui/layouts/queue-tab-auto-layout';
 import { UpscalingTabAutoLayout } from 'features/ui/layouts/upscaling-tab-auto-layout';
+import { VideoTabAutoLayout } from 'features/ui/layouts/video-tab-auto-layout';
 import { WorkflowsTabAutoLayout } from 'features/ui/layouts/workflows-tab-auto-layout';
 import { selectActiveTab } from 'features/ui/store/uiSelectors';
 import { memo } from 'react';
@@ -35,6 +36,7 @@ const TabContent = memo(() => {
       {tab === 'canvas' && <CanvasTabAutoLayout />}
       {tab === 'upscaling' && <UpscalingTabAutoLayout />}
       {tab === 'workflows' && <WorkflowsTabAutoLayout />}
+      {tab === 'video' && <VideoTabAutoLayout />}
       {tab === 'models' && <ModelsTabAutoLayout />}
       {tab === 'queue' && <QueueTabAutoLayout />}
       <SwitchingTabsLoader />

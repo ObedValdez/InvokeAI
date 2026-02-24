@@ -146,6 +146,8 @@ class InvokeAIAppConfig(BaseSettings):
     custom_nodes_dir:              Path = Field(default=Path("nodes"),      description="Path to directory for custom nodes.")
     style_presets_dir:      Path = Field(default=Path("style_presets"),      description="Path to directory for style presets.")
     workflow_thumbnails_dir: Path = Field(default=Path("workflow_thumbnails"), description="Path to directory for workflow thumbnails.")
+    video_outputs_dir:             Path = Field(default=Path("outputs/videos"), description="Path to directory for generated videos.")
+    video_temp_dir:                Path = Field(default=Path("outputs/video_temp"), description="Path to directory for temporary video files.")
 
     # LOGGING
     log_handlers:             list[str] = Field(default=["console"],        description='Log handler. Valid options are "console", "file=<path>", "syslog=path|address:host:port", "http=<url>".')
@@ -190,6 +192,9 @@ class InvokeAIAppConfig(BaseSettings):
     pil_compress_level:             int = Field(default=1,                  description="The compress_level setting of PIL.Image.save(), used for PNG encoding. All settings are lossless. 0 = no compression, 1 = fastest with slightly larger filesize, 9 = slowest with smallest filesize. 1 is typically the best setting.")
     max_queue_size:                 int = Field(default=10000, gt=0,        description="Maximum number of items in the session queue.")
     clear_queue_on_startup:        bool = Field(default=False,              description="Empties session queue on startup.")
+    video_default_fps:              int = Field(default=12, ge=4, le=60,    description="Default FPS for generated videos.")
+    video_default_duration_sec:     int = Field(default=6, ge=1, le=30,     description="Default duration for generated videos in seconds.")
+    video_require_consent_marker_for_real_identity: bool = Field(default=True, description="Require consent marker for real identity video profiles.")
 
     # NODES
     allow_nodes:    Optional[list[str]] = Field(default=None,               description="List of nodes to allow. Omit to allow all.")
@@ -315,6 +320,16 @@ class InvokeAIAppConfig(BaseSettings):
     def workflow_thumbnails_path(self) -> Path:
         """Path to the workflow thumbnails directory, resolved to an absolute path.."""
         return self._resolve(self.workflow_thumbnails_dir)
+
+    @property
+    def video_outputs_path(self) -> Path:
+        """Path to the generated videos directory, resolved to an absolute path.."""
+        return self._resolve(self.video_outputs_dir)
+
+    @property
+    def video_temp_path(self) -> Path:
+        """Path to temporary video files directory, resolved to an absolute path.."""
+        return self._resolve(self.video_temp_dir)
 
     @property
     def convert_cache_path(self) -> Path:

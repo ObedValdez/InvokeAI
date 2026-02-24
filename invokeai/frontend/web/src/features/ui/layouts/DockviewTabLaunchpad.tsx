@@ -24,6 +24,7 @@ const TAB_ICONS: Record<TabName, IconType> = {
   canvas: PiBoundingBoxBold,
   upscaling: PiFrameCornersBold,
   workflows: PiFlowArrowBold,
+  video: PiFrameCornersBold,
   models: PiCubeBold,
   queue: PiQueueBold,
 };

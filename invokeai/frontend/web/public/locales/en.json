@@ -2853,6 +2853,7 @@
             "models": "Models",
             "modelsTab": "$t(ui.tabs.models) $t(common.tab)",
             "queue": "Queue",
+            "video": "Video",
             "upscaling": "Upscaling",
             "upscalingTab": "$t(ui.tabs.upscaling) $t(common.tab)",
             "gallery": "Gallery"
