@@ -8,14 +8,23 @@ import {
   FormControl,
   FormLabel,
   Heading,
+  Image,
   Input,
   Progress,
   Select,
   Text,
   Textarea,
 } from '@invoke-ai/ui-library';
+import { useStore } from '@nanostores/react';
+import { useAppSelector } from 'app/store/storeHooks';
+import { useGalleryImageNames } from 'features/gallery/components/use-gallery-image-names';
+import { selectLastSelectedItem } from 'features/gallery/store/gallerySelectors';
 import { toast } from 'features/toast/toast';
+import { useIsMobileLayout } from 'features/ui/hooks/useIsMobileLayout';
+import { $videoReferenceInbox, clearVideoReferenceInbox } from 'features/video/store/videoReferenceInboxStore';
 import { memo, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useImageDTO } from 'services/api/endpoints/images';
 /* eslint-disable react/jsx-no-bind */
 import {
   buildVideosUrl,
@@ -42,6 +51,15 @@ const statusColorScheme: Record<VideoJobStatus, string> = {
   cancelled: 'gray',
 };
 
+const statusLabelKey: Record<VideoJobStatus, string> = {
+  waiting: 'videoTab.jobs.status.waiting',
+  running: 'videoTab.jobs.status.running',
+  encoding: 'videoTab.jobs.status.encoding',
+  completed: 'videoTab.jobs.status.completed',
+  error: 'videoTab.jobs.status.error',
+  cancelled: 'videoTab.jobs.status.cancelled',
+};
+
 const parseImageNames = (input: string): string[] => {
   return Array.from(
     new Set(
@@ -49,14 +67,38 @@ const parseImageNames = (input: string): string[] => {
         .split(/[\n,]+/)
         .map((s) => s.trim())
         .filter((s) => s.length > 0)
+        .map((s) => s.split(/[\\/]/).at(-1) ?? s)
     )
   );
 };
 
+const getStrictCharacterPreset = (): VideoGenerationLock => ({
+  strict_lock: true,
+  seed_jitter: 0,
+  reference_weight: 1.0,
+  seed_strategy: 'fixed',
+});
+
+const getErrorMessage = (error: unknown): string | null => {
+  if (!error || typeof error !== 'object') {
+    return null;
+  }
+  const maybeError = error as { data?: { detail?: string } };
+  return maybeError.data?.detail ?? null;
+};
+
+type MobileVideoSection = 'profile' | 'generation' | 'jobs';
+
 export const VideoTab = memo(() => {
+  const { t } = useTranslation();
+  const isMobileLayout = useIsMobileLayout();
   const { data: profiles = [] } = useListVideoProfilesQuery();
   const { data: jobs = [] } = useListVideoJobsQuery(undefined, { pollingInterval: 2000 });
   const { data: videos = [] } = useListVideosQuery(undefined, { pollingInterval: 3000 });
+  const { imageNames } = useGalleryImageNames();
+  const selectedGalleryImageName = useAppSelector(selectLastSelectedItem);
+  const selectedGalleryImage = useImageDTO(selectedGalleryImageName);
+  const inboxReferences = useStore($videoReferenceInbox);
 
   const [createProfile, { isLoading: isCreatingProfile }] = useCreateVideoProfileMutation();
   const [updateProfile, { isLoading: isSavingProfile }] = useUpdateVideoProfileMutation();
@@ -69,17 +111,23 @@ export const VideoTab = memo(() => {
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const [mode, setMode] = useState<'fictional' | 'real_identity'>('fictional');
   const [consentChecked, setConsentChecked] = useState(false);
+  const [referenceImageNames, setReferenceImageNames] = useState<string[]>([]);
   const [referencesInput, setReferencesInput] = useState('');
-  const [generationLockInput, setGenerationLockInput] = useState('{"strict_lock": true}');
+  const [showManualReferenceEditor, setShowManualReferenceEditor] = useState(false);
+  const [imageToAdd, setImageToAdd] = useState('');
+  const [generationLockInput, setGenerationLockInput] = useState(JSON.stringify(getStrictCharacterPreset(), null, 2));
 
   const [prompt, setPrompt] = useState('cinematic medium shot, gentle movement, natural lighting');
-  const [negativePrompt, setNegativePrompt] = useState('distorted face, low quality, blurry');
+  const [negativePrompt, setNegativePrompt] = useState(
+    'distorted face, low quality, blurry, deformed eyes, bad anatomy'
+  );
   const [durationSec, setDurationSec] = useState(6);
   const [fps, setFps] = useState(12);
   const [width, setWidth] = useState(1280);
   const [height, setHeight] = useState(720);
 
   const [selectedVideoId, setSelectedVideoId] = useState<string>('');
+  const [mobileSection, setMobileSection] = useState<MobileVideoSection>('generation');
 
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.id === selectedProfileId) ?? null,
@@ -90,6 +138,12 @@ export const VideoTab = memo(() => {
     () => videos.find((video) => video.id === selectedVideoId) ?? videos[0] ?? null,
     [selectedVideoId, videos]
   );
+
+  useEffect(() => {
+    if (!imageToAdd && imageNames[0]) {
+      setImageToAdd(imageNames[0]);
+    }
+  }, [imageNames, imageToAdd]);
 
   useEffect(() => {
     const firstProfile = profiles[0];
@@ -112,22 +166,85 @@ export const VideoTab = memo(() => {
 
     setMode(selectedProfile.mode);
     setConsentChecked(selectedProfile.consent_checked);
+    setReferenceImageNames(selectedProfile.reference_images);
     setReferencesInput(selectedProfile.reference_images.join('\n'));
     setGenerationLockInput(JSON.stringify(selectedProfile.generation_lock ?? {}, null, 2));
   }, [selectedProfile]);
 
+  useEffect(() => {
+    if (inboxReferences.length === 0) {
+      return;
+    }
+    setReferenceImageNames((prev) => Array.from(new Set([...prev, ...inboxReferences])));
+    clearVideoReferenceInbox();
+  }, [inboxReferences]);
+
+  const parseGenerationLockInput = (): VideoGenerationLock | null => {
+    try {
+      return JSON.parse(generationLockInput) as VideoGenerationLock;
+    } catch {
+      toast({
+        id: 'VIDEO_PROFILE_LOCK_INVALID',
+        title: t('videoTab.toasts.invalidGenerationLock'),
+        status: 'error',
+      });
+      return null;
+    }
+  };
+
+  const upsertReferenceImageName = (imageName: string | null | undefined) => {
+    if (!imageName) {
+      return;
+    }
+    const sanitized = imageName.split(/[\\/]/).at(-1) ?? imageName;
+    setReferenceImageNames((prev) => (prev.includes(sanitized) ? prev : [...prev, sanitized]));
+  };
+
+  const removeReferenceImageName = (imageName: string) => {
+    setReferenceImageNames((prev) => prev.filter((name) => name !== imageName));
+  };
+
+  const moveReferenceImageName = (index: number, direction: 'up' | 'down') => {
+    setReferenceImageNames((prev) => {
+      const next = [...prev];
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= next.length) {
+        return prev;
+      }
+      const currentValue = next[index];
+      const targetValue = next[target];
+      if (!currentValue || !targetValue) {
+        return prev;
+      }
+      next[index] = targetValue;
+      next[target] = currentValue;
+      return next;
+    });
+  };
+
+  const applyStrictCharacterPreset = () => {
+    setGenerationLockInput(JSON.stringify(getStrictCharacterPreset(), null, 2));
+    setDurationSec(6);
+    setFps(12);
+    setWidth(1280);
+    setHeight(720);
+    setNegativePrompt('distorted face, low quality, blurry, deformed eyes, bad anatomy, extra fingers');
+    toast({
+      id: 'VIDEO_PRESET_APPLIED',
+      title: t('videoTab.toasts.strictPresetApplied'),
+      status: 'success',
+    });
+  };
+
   const createProfileHandler = async () => {
     const name = newProfileName.trim();
     if (!name) {
-      toast({ id: 'VIDEO_PROFILE_NAME_REQUIRED', title: 'Profile name is required', status: 'error' });
+      toast({ id: 'VIDEO_PROFILE_NAME_REQUIRED', title: t('videoTab.toasts.profileNameRequired'), status: 'error' });
       return;
     }
 
-    let generationLock: VideoGenerationLock = { strict_lock: true };
-    try {
-      generationLock = JSON.parse(generationLockInput) as VideoGenerationLock;
-    } catch {
-      toast({ id: 'VIDEO_PROFILE_LOCK_INVALID', title: 'Generation lock JSON is invalid', status: 'error' });
+    const generationLock = parseGenerationLockInput();
+    if (!generationLock) {
       return;
     }
 
@@ -139,9 +256,13 @@ export const VideoTab = memo(() => {
         generation_lock: generationLock,
       }).unwrap();
       setSelectedProfileId(created.id);
-      toast({ id: 'VIDEO_PROFILE_CREATED', title: 'Video profile created', status: 'success' });
-    } catch {
-      toast({ id: 'VIDEO_PROFILE_CREATE_FAILED', title: 'Could not create video profile', status: 'error' });
+      toast({ id: 'VIDEO_PROFILE_CREATED', title: t('videoTab.toasts.profileCreated'), status: 'success' });
+    } catch (error) {
+      toast({
+        id: 'VIDEO_PROFILE_CREATE_FAILED',
+        title: getErrorMessage(error) ?? t('videoTab.toasts.profileCreateFailed'),
+        status: 'error',
+      });
     }
   };
 
@@ -149,12 +270,8 @@ export const VideoTab = memo(() => {
     if (!selectedProfileId) {
       return;
     }
-
-    let generationLock: VideoGenerationLock = { strict_lock: true };
-    try {
-      generationLock = JSON.parse(generationLockInput) as VideoGenerationLock;
-    } catch {
-      toast({ id: 'VIDEO_PROFILE_LOCK_INVALID_SAVE', title: 'Generation lock JSON is invalid', status: 'error' });
+    const generationLock = parseGenerationLockInput();
+    if (!generationLock) {
       return;
     }
 
@@ -167,9 +284,13 @@ export const VideoTab = memo(() => {
           generation_lock: generationLock,
         },
       }).unwrap();
-      toast({ id: 'VIDEO_PROFILE_SAVED', title: 'Profile settings saved', status: 'success' });
-    } catch {
-      toast({ id: 'VIDEO_PROFILE_SAVE_FAILED', title: 'Could not save profile settings', status: 'error' });
+      toast({ id: 'VIDEO_PROFILE_SAVED', title: t('videoTab.toasts.profileSaved'), status: 'success' });
+    } catch (error) {
+      toast({
+        id: 'VIDEO_PROFILE_SAVE_FAILED',
+        title: getErrorMessage(error) ?? t('videoTab.toasts.profileSaveFailed'),
+        status: 'error',
+      });
     }
   };
 
@@ -179,11 +300,15 @@ export const VideoTab = memo(() => {
     }
 
     try {
-      const imageNames = parseImageNames(referencesInput);
-      await attachReferences({ profileId: selectedProfileId, image_names: imageNames }).unwrap();
-      toast({ id: 'VIDEO_PROFILE_REFS_SAVED', title: 'Profile references saved', status: 'success' });
-    } catch {
-      toast({ id: 'VIDEO_PROFILE_REFS_FAILED', title: 'Could not save references', status: 'error' });
+      await attachReferences({ profileId: selectedProfileId, image_names: referenceImageNames }).unwrap();
+      setReferencesInput(referenceImageNames.join('\n'));
+      toast({ id: 'VIDEO_PROFILE_REFS_SAVED', title: t('videoTab.toasts.referencesSaved'), status: 'success' });
+    } catch (error) {
+      toast({
+        id: 'VIDEO_PROFILE_REFS_FAILED',
+        title: getErrorMessage(error) ?? t('videoTab.toasts.referencesSaveFailed'),
+        status: 'error',
+      });
     }
   };
 
@@ -195,15 +320,15 @@ export const VideoTab = memo(() => {
     try {
       await deleteProfile(selectedProfileId).unwrap();
       setSelectedProfileId('');
-      toast({ id: 'VIDEO_PROFILE_DELETED', title: 'Video profile deleted', status: 'success' });
+      toast({ id: 'VIDEO_PROFILE_DELETED', title: t('videoTab.toasts.profileDeleted'), status: 'success' });
     } catch {
-      toast({ id: 'VIDEO_PROFILE_DELETE_FAILED', title: 'Could not delete profile', status: 'error' });
+      toast({ id: 'VIDEO_PROFILE_DELETE_FAILED', title: t('videoTab.toasts.profileDeleteFailed'), status: 'error' });
     }
   };
 
   const generateVideoHandler = async () => {
     if (!selectedProfileId) {
-      toast({ id: 'VIDEO_GENERATE_NO_PROFILE', title: 'Select a profile first', status: 'error' });
+      toast({ id: 'VIDEO_GENERATE_NO_PROFILE', title: t('videoTab.toasts.selectProfileFirst'), status: 'error' });
       return;
     }
 
@@ -217,10 +342,20 @@ export const VideoTab = memo(() => {
         width,
         height,
       }).unwrap();
-      toast({ id: 'VIDEO_JOB_QUEUED', title: 'Video job queued', status: 'success' });
-    } catch {
-      toast({ id: 'VIDEO_JOB_FAILED', title: 'Could not queue video job', status: 'error' });
+      toast({ id: 'VIDEO_JOB_QUEUED', title: t('videoTab.toasts.jobQueued'), status: 'success' });
+    } catch (error) {
+      toast({
+        id: 'VIDEO_JOB_FAILED',
+        title: getErrorMessage(error) ?? t('videoTab.toasts.jobFailed'),
+        status: 'error',
+      });
     }
+  };
+
+  const applyManualReferencesHandler = () => {
+    const parsed = parseImageNames(referencesInput);
+    setReferenceImageNames(parsed);
+    toast({ id: 'VIDEO_MANUAL_REFS_APPLIED', title: t('videoTab.toasts.manualReferencesApplied'), status: 'info' });
   };
 
   const lastCompletedVideoFromJobs = useMemo(() => {
@@ -238,35 +373,84 @@ export const VideoTab = memo(() => {
   }, [lastCompletedVideoFromJobs, selectedVideoId]);
 
   return (
-    <Flex w="full" h="full" gap={3} p={3} overflow="hidden">
-      <Flex flexDir="column" w="24rem" h="full" borderRadius="base" borderWidth={1} p={3} gap={3} overflowY="auto">
-        <Heading size="sm">Character Profiles</Heading>
+    <Flex
+      w="full"
+      h="full"
+      gap={{ base: 2, xl: 3 }}
+      p={{ base: 2, xl: 3 }}
+      overflowX="hidden"
+      overflowY={{ base: 'auto', xl: 'hidden' }}
+      flexDir={{ base: 'column', xl: 'row' }}
+    >
+      {isMobileLayout && (
+        <Flex gap={2} flexWrap="wrap">
+          <Button
+            size="sm"
+            variant={mobileSection === 'generation' ? 'solid' : 'outline'}
+            onClick={() => setMobileSection('generation')}
+          >
+            {t('videoTab.generation.heading')}
+          </Button>
+          <Button
+            size="sm"
+            variant={mobileSection === 'profile' ? 'solid' : 'outline'}
+            onClick={() => setMobileSection('profile')}
+          >
+            {t('videoTab.profile.heading')}
+          </Button>
+          <Button size="sm" variant={mobileSection === 'jobs' ? 'solid' : 'outline'} onClick={() => setMobileSection('jobs')}>
+            {t('videoTab.jobs.heading')}
+          </Button>
+        </Flex>
+      )}
+      {(!isMobileLayout || mobileSection === 'profile') && (
+        <Flex
+          flexDir="column"
+          w={{ base: 'full', xl: '26rem' }}
+          minW={0}
+          h={{ base: 'auto', xl: 'full' }}
+          borderRadius="base"
+          borderWidth={1}
+          p={3}
+          gap={3}
+          overflowY={{ base: 'visible', xl: 'auto' }}
+        >
+        <Heading size="sm">{t('videoTab.profile.heading')}</Heading>
+        <Text variant="subtext">{t('videoTab.profile.description')}</Text>
+
+        <Button onClick={applyStrictCharacterPreset} variant="outline" colorScheme="invokeBlue">
+          {t('videoTab.profile.applyStrictPreset')}
+        </Button>
 
         <FormControl>
-          <FormLabel mb={1}>Create profile</FormLabel>
-          <Input value={newProfileName} onChange={(e) => setNewProfileName(e.target.value)} placeholder="Profile name" />
+          <FormLabel mb={1}>{t('videoTab.profile.createProfile')}</FormLabel>
+          <Input
+            value={newProfileName}
+            onChange={(e) => setNewProfileName(e.target.value)}
+            placeholder={t('videoTab.profile.profileNamePlaceholder')}
+          />
         </FormControl>
 
         <FormControl>
-          <FormLabel mb={1}>Identity mode</FormLabel>
+          <FormLabel mb={1}>{t('videoTab.profile.identityMode')}</FormLabel>
           <Select value={mode} onChange={(e) => setMode(e.target.value as 'fictional' | 'real_identity')}>
-            <option value="fictional">Fictional</option>
-            <option value="real_identity">Real identity (consent required)</option>
+            <option value="fictional">{t('videoTab.profile.mode.fictional')}</option>
+            <option value="real_identity">{t('videoTab.profile.mode.realIdentity')}</option>
           </Select>
         </FormControl>
 
         <Checkbox isChecked={consentChecked} onChange={(e) => setConsentChecked(e.target.checked)}>
-          Consent confirmed
+          {t('videoTab.profile.consentConfirmed')}
         </Checkbox>
 
         <Button onClick={createProfileHandler} isLoading={isCreatingProfile} colorScheme="invokeBlue">
-          Create Profile
+          {t('videoTab.profile.createProfileAction')}
         </Button>
 
         <Divider />
 
         <FormControl>
-          <FormLabel mb={1}>Select profile</FormLabel>
+          <FormLabel mb={1}>{t('videoTab.profile.selectProfile')}</FormLabel>
           <Select value={selectedProfileId} onChange={(e) => setSelectedProfileId(e.target.value)}>
             {profiles.map((profile) => (
               <option key={profile.id} value={profile.id}>
@@ -276,77 +460,170 @@ export const VideoTab = memo(() => {
           </Select>
         </FormControl>
 
-        <FormControl>
-          <FormLabel mb={1}>Reference images (image_name, one per line)</FormLabel>
-          <Textarea
-            value={referencesInput}
-            onChange={(e) => setReferencesInput(e.target.value)}
-            minH={28}
-            placeholder="image_1.png&#10;image_2.png"
-          />
-        </FormControl>
+        <Heading size="xs">{t('videoTab.references.heading')}</Heading>
+        <Text variant="subtext">{t('videoTab.references.description')}</Text>
+
+        <Flex gap={2}>
+          <Button
+            flex={1}
+            onClick={() => upsertReferenceImageName(selectedGalleryImageName)}
+            isDisabled={!selectedGalleryImageName}
+          >
+            {t('videoTab.references.useSelectedFromGallery')}
+          </Button>
+          <Button
+            flex={1}
+            variant="outline"
+            onClick={() => upsertReferenceImageName(imageToAdd)}
+            isDisabled={!imageToAdd}
+          >
+            {t('videoTab.references.addFromList')}
+          </Button>
+        </Flex>
+
+        <Select value={imageToAdd} onChange={(e) => setImageToAdd(e.target.value)}>
+          {imageNames.map((imageName) => (
+            <option key={imageName} value={imageName}>
+              {imageName}
+            </option>
+          ))}
+        </Select>
+
+        {selectedGalleryImage ? (
+          <Flex alignItems="center" gap={2} borderWidth={1} borderRadius="base" p={2}>
+            <Image
+              src={selectedGalleryImage.thumbnail_url}
+              alt={selectedGalleryImage.image_name}
+              boxSize="2.5rem"
+              objectFit="cover"
+              borderRadius="base"
+            />
+            <Text fontSize="xs" noOfLines={1}>
+              {t('videoTab.references.currentSelection')}: {selectedGalleryImage.image_name}
+            </Text>
+          </Flex>
+        ) : (
+          <Text variant="subtext">{t('videoTab.references.noGallerySelection')}</Text>
+        )}
+
+        <Flex flexDir="column" gap={2}>
+          {referenceImageNames.length === 0 ? (
+            <Text variant="subtext">{t('videoTab.references.empty')}</Text>
+          ) : (
+            referenceImageNames.map((imageName, index) => (
+              <ReferenceImageRow
+                key={imageName}
+                imageName={imageName}
+                index={index}
+                total={referenceImageNames.length}
+                onMove={moveReferenceImageName}
+                onRemove={removeReferenceImageName}
+              />
+            ))
+          )}
+        </Flex>
+
+        <Button onClick={saveReferencesHandler} isLoading={isSavingReferences} isDisabled={!selectedProfileId}>
+          {t('videoTab.references.saveReferences')}
+        </Button>
+
+        <Button variant="ghost" onClick={() => setShowManualReferenceEditor((v) => !v)}>
+          {showManualReferenceEditor ? t('videoTab.references.hideManual') : t('videoTab.references.showManual')}
+        </Button>
+
+        {showManualReferenceEditor && (
+          <Flex flexDir="column" gap={2}>
+            <FormControl>
+              <FormLabel mb={1}>{t('videoTab.references.manualLabel')}</FormLabel>
+              <Textarea
+                value={referencesInput}
+                onChange={(e) => setReferencesInput(e.target.value)}
+                minH={20}
+                placeholder={t('videoTab.references.manualPlaceholder')}
+              />
+            </FormControl>
+            <Button variant="outline" onClick={applyManualReferencesHandler}>
+              {t('videoTab.references.applyManual')}
+            </Button>
+          </Flex>
+        )}
 
         <FormControl>
-          <FormLabel mb={1}>Generation lock (JSON)</FormLabel>
-          <Textarea value={generationLockInput} onChange={(e) => setGenerationLockInput(e.target.value)} minH={28} />
+          <FormLabel mb={1}>{t('videoTab.profile.generationLock')}</FormLabel>
+          <Textarea value={generationLockInput} onChange={(e) => setGenerationLockInput(e.target.value)} minH={24} />
         </FormControl>
 
         <Flex gap={2}>
           <Button flex={1} onClick={saveProfileHandler} isLoading={isSavingProfile}>
-            Save Settings
+            {t('videoTab.profile.saveSettings')}
           </Button>
-          <Button flex={1} onClick={saveReferencesHandler} isLoading={isSavingReferences}>
-            Save References
+          <Button
+            flex={1}
+            onClick={deleteSelectedProfileHandler}
+            colorScheme="red"
+            variant="outline"
+            isDisabled={!selectedProfileId}
+          >
+            {t('videoTab.profile.deleteProfile')}
           </Button>
         </Flex>
-
-        <Button onClick={deleteSelectedProfileHandler} colorScheme="red" variant="outline" isDisabled={!selectedProfileId}>
-          Delete Profile
-        </Button>
       </Flex>
+      )}
 
-      <Flex flexDir="column" flex={1} h="full" borderRadius="base" borderWidth={1} p={3} gap={3} overflowY="auto">
-        <Heading size="sm">Video Generation + Preview</Heading>
+      {(!isMobileLayout || mobileSection === 'generation') && (
+      <Flex
+        flexDir="column"
+        flex={1}
+        minW={0}
+        h={{ base: 'auto', xl: 'full' }}
+        borderRadius="base"
+        borderWidth={1}
+        p={3}
+        gap={3}
+        overflowY={{ base: 'visible', xl: 'auto' }}
+      >
+        <Heading size="sm">{t('videoTab.generation.heading')}</Heading>
+        <Text variant="subtext">{t('videoTab.generation.description')}</Text>
 
         <Flex gap={3} flexWrap="wrap">
           <FormControl maxW="22rem">
-            <FormLabel mb={1}>Prompt</FormLabel>
+            <FormLabel mb={1}>{t('videoTab.generation.prompt')}</FormLabel>
             <Textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} minH={20} />
           </FormControl>
 
           <FormControl maxW="22rem">
-            <FormLabel mb={1}>Negative prompt</FormLabel>
+            <FormLabel mb={1}>{t('videoTab.generation.negativePrompt')}</FormLabel>
             <Textarea value={negativePrompt} onChange={(e) => setNegativePrompt(e.target.value)} minH={20} />
           </FormControl>
         </Flex>
 
         <Flex gap={3} flexWrap="wrap">
           <FormControl maxW="8rem">
-            <FormLabel mb={1}>Duration (s)</FormLabel>
+            <FormLabel mb={1}>{t('videoTab.generation.duration')}</FormLabel>
             <Input type="number" value={durationSec} onChange={(e) => setDurationSec(Number(e.target.value))} />
           </FormControl>
           <FormControl maxW="8rem">
-            <FormLabel mb={1}>FPS</FormLabel>
+            <FormLabel mb={1}>{t('videoTab.generation.fps')}</FormLabel>
             <Input type="number" value={fps} onChange={(e) => setFps(Number(e.target.value))} />
           </FormControl>
           <FormControl maxW="10rem">
-            <FormLabel mb={1}>Width</FormLabel>
+            <FormLabel mb={1}>{t('videoTab.generation.width')}</FormLabel>
             <Input type="number" value={width} onChange={(e) => setWidth(Number(e.target.value))} />
           </FormControl>
           <FormControl maxW="10rem">
-            <FormLabel mb={1}>Height</FormLabel>
+            <FormLabel mb={1}>{t('videoTab.generation.height')}</FormLabel>
             <Input type="number" value={height} onChange={(e) => setHeight(Number(e.target.value))} />
           </FormControl>
         </Flex>
 
-        <Button onClick={generateVideoHandler} isLoading={isGenerating} colorScheme="invokeYellow" maxW="14rem">
-          Generate 5-10s Clip
+        <Button onClick={generateVideoHandler} isLoading={isGenerating} colorScheme="invokeYellow" maxW="16rem">
+          {t('videoTab.generation.generateButton')}
         </Button>
 
         <Divider />
 
-        <Heading size="sm">Video Player</Heading>
-        <Box borderWidth={1} borderRadius="base" p={2} minH="20rem">
+        <Heading size="sm">{t('videoTab.player.heading')}</Heading>
+        <Box borderWidth={1} borderRadius="base" p={2} minH={{ base: '14rem', xl: '20rem' }}>
           {selectedVideo ? (
             <video
               controls
@@ -354,11 +631,11 @@ export const VideoTab = memo(() => {
               style={{ width: '100%', maxHeight: '28rem', borderRadius: '8px', background: '#111' }}
             />
           ) : (
-            <Text variant="subtext">No videos generated yet.</Text>
+            <Text variant="subtext">{t('videoTab.player.empty')}</Text>
           )}
         </Box>
 
-        <Heading size="sm">Video Gallery</Heading>
+        <Heading size="sm">{t('videoTab.gallery.heading')}</Heading>
         <Flex flexWrap="wrap" gap={2}>
           {videos.map((video) => (
             <Button
@@ -372,10 +649,22 @@ export const VideoTab = memo(() => {
           ))}
         </Flex>
       </Flex>
+      )}
 
-      <Flex flexDir="column" w="24rem" h="full" borderRadius="base" borderWidth={1} p={3} gap={3} overflowY="auto">
-        <Heading size="sm">Video Jobs</Heading>
-        {jobs.length === 0 && <Text variant="subtext">No jobs yet.</Text>}
+      {(!isMobileLayout || mobileSection === 'jobs') && (
+        <Flex
+          flexDir="column"
+          w={{ base: 'full', xl: '24rem' }}
+          minW={0}
+          h={{ base: 'auto', xl: 'full' }}
+          borderRadius="base"
+          borderWidth={1}
+          p={3}
+          gap={3}
+          overflowY={{ base: 'visible', xl: 'auto' }}
+        >
+        <Heading size="sm">{t('videoTab.jobs.heading')}</Heading>
+        {jobs.length === 0 && <Text variant="subtext">{t('videoTab.jobs.empty')}</Text>}
 
         {jobs.map((job) => (
           <JobCard
@@ -385,18 +674,60 @@ export const VideoTab = memo(() => {
               try {
                 await cancelVideoJob(job.id).unwrap();
               } catch {
-                toast({ id: `VIDEO_CANCEL_FAILED_${job.id}`, title: 'Could not cancel job', status: 'error' });
+                toast({
+                  id: `VIDEO_CANCEL_FAILED_${job.id}`,
+                  title: t('videoTab.toasts.cancelJobFailed'),
+                  status: 'error',
+                });
               }
             }}
             onOpenVideo={(videoId) => setSelectedVideoId(videoId)}
           />
         ))}
       </Flex>
+      )}
     </Flex>
   );
 });
 
 VideoTab.displayName = 'VideoTab';
+
+const ReferenceImageRow = ({
+  imageName,
+  index,
+  total,
+  onMove,
+  onRemove,
+}: {
+  imageName: string;
+  index: number;
+  total: number;
+  onMove: (index: number, direction: 'up' | 'down') => void;
+  onRemove: (imageName: string) => void;
+}) => {
+  const image = useImageDTO(imageName);
+  const { t } = useTranslation();
+
+  return (
+    <Flex borderWidth={1} borderRadius="base" p={2} gap={2} alignItems="center">
+      <Box boxSize="2.5rem" borderRadius="base" overflow="hidden" bg="base.800" flexShrink={0}>
+        {image ? <Image src={image.thumbnail_url} alt={image.image_name} boxSize="2.5rem" objectFit="cover" /> : null}
+      </Box>
+      <Text fontSize="xs" noOfLines={1} flex={1}>
+        {imageName}
+      </Text>
+      <Button size="xs" variant="ghost" onClick={() => onMove(index, 'up')} isDisabled={index === 0}>
+        {t('videoTab.references.up')}
+      </Button>
+      <Button size="xs" variant="ghost" onClick={() => onMove(index, 'down')} isDisabled={index === total - 1}>
+        {t('videoTab.references.down')}
+      </Button>
+      <Button size="xs" colorScheme="red" variant="ghost" onClick={() => onRemove(imageName)}>
+        {t('videoTab.references.remove')}
+      </Button>
+    </Flex>
+  );
+};
 
 const JobCard = ({
   job,
@@ -407,6 +738,7 @@ const JobCard = ({
   onCancel: () => void;
   onOpenVideo: (videoId: string) => void;
 }) => {
+  const { t } = useTranslation();
   const canCancel = job.status === 'waiting' || job.status === 'running' || job.status === 'encoding';
 
   return (
@@ -415,7 +747,7 @@ const JobCard = ({
         <Text fontSize="sm" noOfLines={1}>
           {job.id}
         </Text>
-        <Badge colorScheme={statusColorScheme[job.status]}>{job.status}</Badge>
+        <Badge colorScheme={statusColorScheme[job.status]}>{t(statusLabelKey[job.status])}</Badge>
       </Flex>
 
       <Progress value={job.progress} max={100} size="xs" borderRadius="full" colorScheme="invokeBlue" />
@@ -428,7 +760,7 @@ const JobCard = ({
 
       <Flex gap={2}>
         <Button size="xs" variant="outline" onClick={onCancel} isDisabled={!canCancel}>
-          Cancel
+          {t('videoTab.jobs.cancel')}
         </Button>
         <Button
           size="xs"
@@ -439,7 +771,7 @@ const JobCard = ({
           }}
           isDisabled={!job.output_video_id}
         >
-          Open Video
+          {t('videoTab.jobs.openVideo')}
         </Button>
       </Flex>
     </Flex>

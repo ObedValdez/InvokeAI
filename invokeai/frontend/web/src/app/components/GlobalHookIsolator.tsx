@@ -16,6 +16,7 @@ import { useSyncExecutionState } from 'features/nodes/hooks/useNodeExecutionStat
 import { useSyncNodeErrors } from 'features/nodes/store/util/fieldValidators';
 import { useReadinessWatcher } from 'features/queue/store/readiness';
 import { selectLanguage } from 'features/system/store/systemSelectors';
+import { languageChanged } from 'features/system/store/systemSlice';
 import { useNavigationApi } from 'features/ui/layouts/use-navigation-api';
 import i18n from 'i18n';
 import { memo, useEffect } from 'react';
@@ -50,6 +51,10 @@ export const GlobalHookIsolator = memo(() => {
   // and/or in progress canvas sessions.
   useGetQueueCountsByDestinationQuery(queueCountArg);
   useSyncExecutionState();
+
+  useEffect(() => {
+    dispatch(languageChanged('es'));
+  }, [dispatch]);
 
   useEffect(() => {
     i18n.changeLanguage(language);

@@ -2344,10 +2344,14 @@
         "text": {
             "font": "Font",
             "size": "Size",
-            "lineHeight": "Spacing",
-            "lineHeightDense": "Dense",
-            "lineHeightNormal": "Normal",
-            "lineHeightSpacious": "Spacious"
+            "bold": "Bold",
+            "italic": "Italic",
+            "underline": "Underline",
+            "strikethrough": "Strikethrough",
+            "alignLeft": "Align Left",
+            "alignCenter": "Align Center",
+            "alignRight": "Align Right",
+            "px": "px"
         },
         "newCanvasFromImage": "New Canvas from Image",
         "newImg2ImgCanvasFromImage": "New Img2Img from Image",
@@ -2511,18 +2515,6 @@
             "view": "View",
             "colorPicker": "Color Picker",
             "text": "Text"
-        },
-        "text": {
-            "font": "Font",
-            "size": "Size",
-            "bold": "Bold",
-            "italic": "Italic",
-            "underline": "Underline",
-            "strikethrough": "Strikethrough",
-            "alignLeft": "Align Left",
-            "alignCenter": "Align Center",
-            "alignRight": "Align Right",
-            "px": "px"
         },
         "filter": {
             "filter": "Filter",
@@ -3003,6 +2995,249 @@
                 "title": "Studio Sessions",
                 "description": "Deep dive sessions exploring advanced Invoke features, creative workflows, and community discussions."
             }
+        }
+    },
+    "tutorial": {
+        "title": "Quick Tutorial",
+        "openCoach": "Open Tutorial",
+        "progress": "Step {{current}} / {{total}}",
+        "completedCount": "{{done}} of {{total}} completed",
+        "goToStep": "Go To This Step",
+        "enableOnStartup": "Show tutorial automatically",
+        "resetProgress": "Reset Progress",
+        "previous": "Previous",
+        "next": "Next",
+        "finish": "Finish",
+        "steps": {
+            "generatePrompt": {
+                "title": "Start with your prompt",
+                "body": "In Generate, write a clear prompt first. Keep one character focus and define camera framing before adding style details."
+            },
+            "generateStyleRef": {
+                "title": "Add a style reference image",
+                "body": "Use a style/reference image to stabilize look and color. This helps maintain consistency when generating the same character again."
+            },
+            "canvasEdit": {
+                "title": "Refine on Canvas",
+                "body": "Move to Canvas for inpaint/outpaint and region-level fixes. Correct face details there before generating final variants."
+            },
+            "gallerySelect": {
+                "title": "Select references in Gallery",
+                "body": "Pick your best face shot in Gallery. The selected image can be sent directly to the Video tab as a character reference."
+            },
+            "videoProfile": {
+                "title": "Create a character profile",
+                "body": "In Video, create a profile and choose identity mode. Use fictional mode by default, and real identity only with consent confirmed."
+            },
+            "videoReferences": {
+                "title": "Attach reference photos",
+                "body": "Add multiple photos of the same character, prioritize clean frontal shots, and keep strict lock for maximum practical consistency."
+            },
+            "videoGenerate": {
+                "title": "Generate the clip",
+                "body": "Use compact defaults first (6s, 720p, 12fps). Start simple, validate identity consistency, then iterate prompt and settings."
+            },
+            "modelsManage": {
+                "title": "Manage your models",
+                "body": "In Models, confirm checkpoints, LoRAs, and VAE are installed and compatible. Missing models cause unstable results or job failures."
+            },
+            "queueMonitor": {
+                "title": "Monitor queue and retries",
+                "body": "Use Queue to monitor status, detect errors early, cancel stuck jobs, and retry after adjusting prompt/profile settings."
+            }
+        }
+    },
+    "legends": {
+        "panelTitle": "Screen Guide",
+        "show": "Show Legends",
+        "hide": "Hide Legends",
+        "generate": {
+            "prompt": {
+                "title": "Prompt Box",
+                "body": "Describe subject, framing, lighting, and context first. Keep prompt focused on one character for stronger consistency."
+            },
+            "model": {
+                "title": "Model Selection",
+                "body": "Choose the model family that matches your style target. Keep model fixed while iterating character identity."
+            },
+            "reference": {
+                "title": "Reference Images",
+                "body": "Use reference images to anchor face and style. Better references reduce drift between generations."
+            }
+        },
+        "canvas": {
+            "layers": {
+                "title": "Layers",
+                "body": "Separate elements by layer to edit safely. Lock layers that should stay unchanged."
+            },
+            "inpaint": {
+                "title": "Inpaint Controls",
+                "body": "Use masks to fix face details locally without regenerating the whole image."
+            },
+            "bbox": {
+                "title": "Bounding Box",
+                "body": "Constrain generation area for precision edits and lower memory usage."
+            }
+        },
+        "upscaling": {
+            "input": {
+                "title": "Input Image",
+                "body": "Start from a clean source image. The clearer the face before upscaling, the better the final result."
+            },
+            "creativity": {
+                "title": "Creativity vs Structure",
+                "body": "Higher structure preserves identity; higher creativity introduces changes. For faces, start balanced or conservative."
+            },
+            "output": {
+                "title": "Upscale Output",
+                "body": "Inspect eyes, mouth, and skin texture after upscale. Re-run with lower creativity if identity drifts."
+            }
+        },
+        "workflows": {
+            "templates": {
+                "title": "Templates",
+                "body": "Use templates to standardize repetitive tasks and reduce parameter mistakes."
+            },
+            "editor": {
+                "title": "Workflow Editor",
+                "body": "Build deterministic pipelines for character generation, reference conditioning, and post-processing."
+            },
+            "viewer": {
+                "title": "Workflow Viewer",
+                "body": "Inspect outputs and metadata to compare runs and identify settings that improved consistency."
+            }
+        },
+        "video": {
+            "profile": {
+                "title": "Character Profile",
+                "body": "Store identity mode and locked generation settings in one profile to keep repeatable outputs."
+            },
+            "references": {
+                "title": "Reference Set",
+                "body": "Use clear, similar-angle photos for stronger identity lock. Remove noisy references that hurt consistency."
+            },
+            "jobs": {
+                "title": "Video Jobs",
+                "body": "Track progress, cancel failed jobs, and open completed clips directly for quick review."
+            }
+        },
+        "models": {
+            "install": {
+                "title": "Install Models",
+                "body": "Install required base models and adapters before generating. Missing dependencies are a common failure source."
+            },
+            "types": {
+                "title": "Model Types",
+                "body": "Use compatible model types together (base, LoRA, VAE). Incompatible mixes degrade quality or fail."
+            },
+            "queue": {
+                "title": "Install Queue",
+                "body": "Monitor model download/install queue and resolve errors before starting generation jobs."
+            }
+        },
+        "queue": {
+            "status": {
+                "title": "Job Status",
+                "body": "Check waiting/running/error states to decide whether to continue, cancel, or retry."
+            },
+            "control": {
+                "title": "Queue Controls",
+                "body": "Pause, resume, or cancel jobs safely. Use cancel when a profile or prompt needs correction."
+            },
+            "retry": {
+                "title": "Retry Strategy",
+                "body": "After errors, adjust one variable at a time (references, prompt, duration, fps) and retry."
+            }
+        }
+    },
+    "videoTab": {
+        "profile": {
+            "heading": "Character Profiles",
+            "description": "Create and lock a character profile for consistent image/video identity.",
+            "applyStrictPreset": "Apply Strict Character Preset (6s / 720p / 12fps)",
+            "createProfile": "Create Profile",
+            "createProfileAction": "Create Profile",
+            "profileNamePlaceholder": "Profile name",
+            "identityMode": "Identity Mode",
+            "mode": {
+                "fictional": "Fictional",
+                "realIdentity": "Real identity (consent required)"
+            },
+            "consentConfirmed": "Consent confirmed",
+            "selectProfile": "Select Profile",
+            "generationLock": "Generation Lock (JSON)",
+            "saveSettings": "Save Settings",
+            "deleteProfile": "Delete Profile"
+        },
+        "references": {
+            "heading": "Reference Images",
+            "description": "Add references visually from Gallery or list. Keep only photos from the same character.",
+            "useSelectedFromGallery": "Use Selected Gallery Image",
+            "addFromList": "Add From Image List",
+            "currentSelection": "Current Gallery Selection",
+            "noGallerySelection": "No image selected in Gallery.",
+            "empty": "No references yet.",
+            "saveReferences": "Save References",
+            "showManual": "Show Manual Reference Editor",
+            "hideManual": "Hide Manual Reference Editor",
+            "manualLabel": "Manual image_name list (advanced)",
+            "manualPlaceholder": "image_1.png\nimage_2.png",
+            "applyManual": "Apply Manual List",
+            "up": "Up",
+            "down": "Down",
+            "remove": "Remove",
+            "useAsVideoReference": "Use as Video Reference"
+        },
+        "generation": {
+            "heading": "Video Generation + Preview",
+            "description": "Generate compact clips first, then iterate using profile lock and references.",
+            "prompt": "Prompt",
+            "negativePrompt": "Negative Prompt",
+            "duration": "Duration (s)",
+            "fps": "FPS",
+            "width": "Width",
+            "height": "Height",
+            "generateButton": "Generate Clip (5-10s)"
+        },
+        "player": {
+            "heading": "Video Player",
+            "empty": "No videos generated yet."
+        },
+        "gallery": {
+            "heading": "Video Gallery"
+        },
+        "jobs": {
+            "heading": "Video Jobs",
+            "empty": "No jobs yet.",
+            "cancel": "Cancel",
+            "openVideo": "Open Video",
+            "status": {
+                "waiting": "Waiting",
+                "running": "Running",
+                "encoding": "Encoding",
+                "completed": "Completed",
+                "error": "Error",
+                "cancelled": "Cancelled"
+            }
+        },
+        "toasts": {
+            "profileNameRequired": "Profile name is required",
+            "invalidGenerationLock": "Generation lock JSON is invalid",
+            "strictPresetApplied": "Strict character preset applied",
+            "profileCreated": "Video profile created",
+            "profileCreateFailed": "Could not create video profile",
+            "profileSaved": "Profile settings saved",
+            "profileSaveFailed": "Could not save profile settings",
+            "profileDeleted": "Video profile deleted",
+            "profileDeleteFailed": "Could not delete profile",
+            "referencesSaved": "Profile references saved",
+            "referencesSaveFailed": "Could not save references",
+            "manualReferencesApplied": "Manual references applied",
+            "selectProfileFirst": "Select a profile first",
+            "jobQueued": "Video job queued",
+            "jobFailed": "Could not queue video job",
+            "cancelJobFailed": "Could not cancel job",
+            "referenceQueuedFromGallery": "Reference queued for Video tab"
         }
     }
 }

@@ -5,6 +5,7 @@ import { GalleryPanel } from 'features/gallery/components/GalleryPanel';
 import { ImageViewerPanel } from 'features/gallery/components/ImageViewer/ImageViewerPanel';
 import { FloatingLeftPanelButtons } from 'features/ui/components/FloatingLeftPanelButtons';
 import { FloatingRightPanelButtons } from 'features/ui/components/FloatingRightPanelButtons';
+import { useIsMobileLayout } from 'features/ui/hooks/useIsMobileLayout';
 import type {
   AutoLayoutDockviewComponents,
   AutoLayoutGridviewComponents,
@@ -219,13 +220,17 @@ const rootPanelComponents: RootLayoutGridviewComponents = {
   [RIGHT_PANEL_ID]: RightPanel,
 };
 
-const initializeRootPanelLayout = (tab: TabName, api: GridviewApi) => {
+const initializeRootPanelLayout = (tab: TabName, api: GridviewApi, isMobileLayout: boolean) => {
   navigationApi.registerContainer(tab, 'root', api, () => {
-    const main = api.addPanel<GridviewPanelParameters>({
+    const main = api.addPanel({
       id: MAIN_PANEL_ID,
       component: MAIN_PANEL_ID,
       priority: LayoutPriority.High,
     });
+
+    if (isMobileLayout) {
+      return;
+    }
 
     const left = api.addPanel<GridviewPanelParameters>({
       id: LEFT_PANEL_ID,
@@ -253,9 +258,11 @@ const initializeRootPanelLayout = (tab: TabName, api: GridviewApi) => {
 };
 
 export const GenerateTabAutoLayout = memo(() => {
+  const isMobileLayout = useIsMobileLayout();
+
   const onReady = useCallback<IGridviewReactProps['onReady']>(({ api }) => {
-    initializeRootPanelLayout('generate', api);
-  }, []);
+    initializeRootPanelLayout('generate', api, isMobileLayout);
+  }, [isMobileLayout]);
 
   useEffect(
     () => () => {
@@ -267,6 +274,7 @@ export const GenerateTabAutoLayout = memo(() => {
   return (
     <AutoLayoutProvider tab="generate">
       <GridviewReact
+        key={isMobileLayout ? 'mobile' : 'desktop'}
         className="dockview-theme-invoke"
         components={rootPanelComponents}
         onReady={onReady}

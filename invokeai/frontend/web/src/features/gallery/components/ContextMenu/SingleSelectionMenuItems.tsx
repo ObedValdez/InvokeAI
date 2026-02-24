@@ -16,6 +16,7 @@ import { ContextMenuItemSendToUpscale } from 'features/gallery/components/Contex
 import { ContextMenuItemStarUnstar } from 'features/gallery/components/ContextMenu/MenuItems/ContextMenuItemStarUnstar';
 import { ContextMenuItemUseAsPromptTemplate } from 'features/gallery/components/ContextMenu/MenuItems/ContextMenuItemUseAsPromptTemplate';
 import { ContextMenuItemUseAsRefImage } from 'features/gallery/components/ContextMenu/MenuItems/ContextMenuItemUseAsRefImage';
+import { ContextMenuItemUseAsVideoReference } from 'features/gallery/components/ContextMenu/MenuItems/ContextMenuItemUseAsVideoReference';
 import { ImageDTOContextProvider } from 'features/gallery/contexts/ImageDTOContext';
 import { selectActiveTab } from 'features/ui/store/uiSelectors';
 import type { ImageDTO } from 'services/api/types';
@@ -48,6 +49,7 @@ const SingleSelectionMenuItems = ({ imageDTO }: SingleSelectionMenuItemsProps) =
       <MenuDivider />
       <ContextMenuItemSendToUpscale />
       {(tab === 'canvas' || tab === 'generate') && <ContextMenuItemUseAsRefImage />}
+      <ContextMenuItemUseAsVideoReference />
       <ContextMenuItemUseAsPromptTemplate />
       <ContextMenuItemNewCanvasFromImageSubMenu />
       {tab === 'canvas' && <ContextMenuItemNewLayerFromImageSubMenu />}

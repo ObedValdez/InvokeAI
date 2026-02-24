@@ -1,6 +1,6 @@
 import { api, buildV1Url, LIST_TAG } from '..';
 
-export type VideoProfileMode = 'fictional' | 'real_identity';
+type VideoProfileMode = 'fictional' | 'real_identity';
 export type VideoJobStatus = 'waiting' | 'running' | 'encoding' | 'completed' | 'error' | 'cancelled';
 
 export type VideoGenerationLock = {
@@ -17,7 +17,7 @@ export type VideoGenerationLock = {
   strict_lock?: boolean;
 };
 
-export type VideoProfile = {
+type VideoProfile = {
   id: string;
   name: string;
   mode: VideoProfileMode;
@@ -28,21 +28,21 @@ export type VideoProfile = {
   updated_at: string;
 };
 
-export type VideoProfileCreate = {
+type VideoProfileCreate = {
   name: string;
   mode: VideoProfileMode;
   consent_checked: boolean;
   generation_lock?: VideoGenerationLock;
 };
 
-export type VideoProfileUpdate = {
+type VideoProfileUpdate = {
   name?: string;
   mode?: VideoProfileMode;
   consent_checked?: boolean;
   generation_lock?: VideoGenerationLock;
 };
 
-export type VideoGenerateRequest = {
+type VideoGenerateRequest = {
   profile_id: string;
   prompt?: string;
   negative_prompt?: string;
@@ -64,7 +64,7 @@ export type VideoJob = {
   updated_at: string;
 };
 
-export type VideoAsset = {
+type VideoAsset = {
   id: string;
   filename: string;
   duration: number;
@@ -79,7 +79,7 @@ export type VideoAsset = {
 const buildVideoProfilesUrl = (path = '') => buildV1Url(path ? `video_profiles/${path}` : 'video_profiles');
 const buildVideosUrl = (path = '') => buildV1Url(path ? `videos/${path}` : 'videos');
 
-export const videosApi = api.injectEndpoints({
+const videosApi = api.injectEndpoints({
   endpoints: (build) => ({
     listVideoProfiles: build.query<VideoProfile[], void>({
       query: () => ({ url: buildVideoProfilesUrl() }),
@@ -162,13 +162,11 @@ export const videosApi = api.injectEndpoints({
 export const {
   useListVideoProfilesQuery,
   useCreateVideoProfileMutation,
-  useGetVideoProfileQuery,
   useUpdateVideoProfileMutation,
   useDeleteVideoProfileMutation,
   useAttachVideoReferencesMutation,
   useGenerateVideoMutation,
   useListVideoJobsQuery,
-  useGetVideoJobQuery,
   useCancelVideoJobMutation,
   useListVideosQuery,
 } = videosApi;

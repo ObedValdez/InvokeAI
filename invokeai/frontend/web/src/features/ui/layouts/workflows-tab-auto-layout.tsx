@@ -7,6 +7,7 @@ import NodeEditor from 'features/nodes/components/NodeEditor';
 import WorkflowsTabLeftPanel from 'features/nodes/components/sidePanel/WorkflowsTabLeftPanel';
 import { FloatingLeftPanelButtons } from 'features/ui/components/FloatingLeftPanelButtons';
 import { FloatingRightPanelButtons } from 'features/ui/components/FloatingRightPanelButtons';
+import { useIsMobileLayout } from 'features/ui/hooks/useIsMobileLayout';
 import type {
   AutoLayoutDockviewComponents,
   AutoLayoutGridviewComponents,
@@ -238,13 +239,17 @@ const rootPanelComponents: RootLayoutGridviewComponents = {
   [RIGHT_PANEL_ID]: RightPanel,
 };
 
-const initializeRootPanelLayout = (tab: TabName, api: GridviewApi) => {
+const initializeRootPanelLayout = (tab: TabName, api: GridviewApi, isMobileLayout: boolean) => {
   navigationApi.registerContainer(tab, 'root', api, () => {
     const main = api.addPanel({
       id: MAIN_PANEL_ID,
       component: MAIN_PANEL_ID,
       priority: LayoutPriority.High,
     });
+
+    if (isMobileLayout) {
+      return;
+    }
 
     const left = api.addPanel({
       id: LEFT_PANEL_ID,
@@ -272,9 +277,11 @@ const initializeRootPanelLayout = (tab: TabName, api: GridviewApi) => {
 };
 
 export const WorkflowsTabAutoLayout = memo(() => {
+  const isMobileLayout = useIsMobileLayout();
+
   const onReady = useCallback<IGridviewReactProps['onReady']>(({ api }) => {
-    initializeRootPanelLayout('workflows', api);
-  }, []);
+    initializeRootPanelLayout('workflows', api, isMobileLayout);
+  }, [isMobileLayout]);
 
   useEffect(
     () => () => {
@@ -286,6 +293,7 @@ export const WorkflowsTabAutoLayout = memo(() => {
   return (
     <AutoLayoutProvider tab="workflows">
       <GridviewReact
+        key={isMobileLayout ? 'mobile' : 'desktop'}
         className="dockview-theme-invoke"
         components={rootPanelComponents}
         onReady={onReady}

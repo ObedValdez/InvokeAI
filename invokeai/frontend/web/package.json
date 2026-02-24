@@ -36,7 +36,10 @@
     "build-storybook": "storybook build",
     "test": "vitest",
     "test:ui": "vitest --coverage --ui",
-    "test:no-watch": "vitest --no-watch"
+    "test:no-watch": "vitest --no-watch",
+    "i18n:sync:es": "python scripts/sync_es_translations.py",
+    "i18n:report:es": "python scripts/i18n_coverage_report.py --lang es",
+    "i18n:check:es": "python scripts/i18n_coverage_report.py --lang es --fail-on-missing"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^1.7.4",

@@ -16,7 +16,7 @@ const config: KnipConfig = {
     'src/common/hooks/useAsyncState.ts',
     'src/app/store/use-debounced-app-selector.ts',
   ],
-  ignoreBinaries: ['only-allow'],
+  ignoreBinaries: ['only-allow', 'python'],
   ignoreDependencies: ['magic-string'],
   paths: {
     'public/*': ['public/*'],

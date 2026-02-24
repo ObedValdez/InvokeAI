@@ -12,11 +12,11 @@ import { assert } from 'tsafe';
 import { type Language, type SystemState, zSystemState } from './types';
 
 const getInitialState = (): SystemState => ({
-  _version: 2,
+  _version: 3,
   shouldConfirmOnDelete: true,
   shouldAntialiasProgressImage: false,
   shouldConfirmOnNewSession: true,
-  language: 'en',
+  language: 'es',
   shouldUseNSFWChecker: false,
   shouldUseWatermarker: false,
   shouldEnableInformationalPopovers: true,
@@ -26,6 +26,9 @@ const getInitialState = (): SystemState => ({
   logNamespaces: [...zLogNamespace.options],
   shouldShowInvocationProgressDetail: false,
   shouldHighlightFocusedRegions: false,
+  tutorialEnabled: true,
+  showLegends: true,
+  tutorialCompletedSteps: [],
 });
 
 const slice = createSlice({
@@ -75,6 +78,20 @@ const slice = createSlice({
     setShouldHighlightFocusedRegions(state, action: PayloadAction<boolean>) {
       state.shouldHighlightFocusedRegions = action.payload;
     },
+    setTutorialEnabled(state, action: PayloadAction<boolean>) {
+      state.tutorialEnabled = action.payload;
+    },
+    setShowLegends(state, action: PayloadAction<boolean>) {
+      state.showLegends = action.payload;
+    },
+    addTutorialCompletedStep(state, action: PayloadAction<string>) {
+      if (!state.tutorialCompletedSteps.includes(action.payload)) {
+        state.tutorialCompletedSteps.push(action.payload);
+      }
+    },
+    resetTutorialCompletedSteps(state) {
+      state.tutorialCompletedSteps = [];
+    },
   },
 });
 
@@ -92,6 +109,10 @@ export const {
   shouldConfirmOnNewSessionToggled,
   setShouldShowInvocationProgressDetail,
   setShouldHighlightFocusedRegions,
+  setTutorialEnabled,
+  setShowLegends,
+  addTutorialCompletedStep,
+  resetTutorialCompletedSteps,
 } = slice.actions;
 
 export const systemSliceConfig: SliceConfig<typeof slice> = {
@@ -107,6 +128,13 @@ export const systemSliceConfig: SliceConfig<typeof slice> = {
       if (state._version === 1) {
         state.language = (state as SystemState).language.replace('_', '-');
         state._version = 2;
+      }
+      if (state._version === 2) {
+        state.language = 'es';
+        state.tutorialEnabled = true;
+        state.showLegends = true;
+        state.tutorialCompletedSteps = [];
+        state._version = 3;
       }
       return zSystemState.parse(state);
     },
@@ -140,3 +168,6 @@ export const selectSystemShouldConfirmOnNewSession = createSystemSelector((syste
 export const selectSystemShouldShowInvocationProgressDetail = createSystemSelector(
   (system) => system.shouldShowInvocationProgressDetail
 );
+export const selectSystemTutorialEnabled = createSystemSelector((system) => system.tutorialEnabled);
+export const selectSystemShowLegends = createSystemSelector((system) => system.showLegends);
+export const selectSystemTutorialCompletedSteps = createSystemSelector((system) => system.tutorialCompletedSteps);
