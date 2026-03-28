@@ -30,7 +30,7 @@ export type Language = z.infer<typeof zLanguage>;
 export const isLanguage = (v: unknown): v is Language => zLanguage.safeParse(v).success;
 
 export const zSystemState = z.object({
-  _version: z.literal(3),
+  _version: z.literal(4),
   shouldConfirmOnDelete: z.boolean(),
   shouldAntialiasProgressImage: z.boolean(),
   shouldConfirmOnNewSession: z.boolean(),

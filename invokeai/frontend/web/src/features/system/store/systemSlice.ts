@@ -12,7 +12,7 @@ import { assert } from 'tsafe';
 import { type Language, type SystemState, zSystemState } from './types';
 
 const getInitialState = (): SystemState => ({
-  _version: 3,
+  _version: 4,
   shouldConfirmOnDelete: true,
   shouldAntialiasProgressImage: false,
   shouldConfirmOnNewSession: true,
@@ -122,6 +122,7 @@ export const systemSliceConfig: SliceConfig<typeof slice> = {
   persistConfig: {
     migrate: (state) => {
       assert(isPlainObject(state));
+      const defaults = getInitialState();
       if (!('_version' in state)) {
         state._version = 1;
       }
@@ -135,6 +136,16 @@ export const systemSliceConfig: SliceConfig<typeof slice> = {
         state.showLegends = true;
         state.tutorialCompletedSteps = [];
         state._version = 3;
+      }
+      if (state._version === 3) {
+        state._version = 4;
+      }
+
+      // Backfill missing keys for partially-migrated persisted states.
+      for (const [key, value] of Object.entries(defaults)) {
+        if (!(key in state) || state[key as keyof typeof state] === undefined) {
+          state[key as keyof typeof state] = value as never;
+        }
       }
       return zSystemState.parse(state);
     },

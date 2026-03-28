@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 from starlette.responses import Response
@@ -25,4 +26,46 @@ class NoCacheStaticFiles(StaticFiles):
         resp.headers.setdefault("Cache-Control", self.cachecontrol)
         resp.headers.setdefault("Pragma", self.pragma)
         resp.headers.setdefault("Expires", self.expires)
+        return resp
+
+
+class SmartCacheStaticFiles(StaticFiles):
+    """Static file caching tuned for fast web UI loads.
+
+    Rules:
+    - HTML entry points: always revalidate (fresh deploy pickup)
+    - Hashed build assets: long-lived immutable cache
+    - Locales and other static files: short/medium cache
+    """
+
+    _HTML_CACHE = "no-cache"
+    _IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
+    _LOCALES_CACHE = "public, max-age=86400"
+    _DEFAULT_CACHE = "public, max-age=3600"
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        resp = super().file_response(*args, **kwargs)
+
+        scope = kwargs.get("scope")
+        if scope is None and len(args) >= 3 and isinstance(args[2], dict):
+            scope = args[2]
+        request_path = ""
+        if isinstance(scope, dict):
+            request_path = str(scope.get("path", ""))
+
+        suffix = Path(request_path).suffix.lower()
+        cache_control = self._DEFAULT_CACHE
+
+        if request_path == "/" or suffix == ".html":
+            cache_control = self._HTML_CACHE
+        elif "/assets/" in request_path:
+            cache_control = self._IMMUTABLE_CACHE
+        elif "/locales/" in request_path:
+            cache_control = self._LOCALES_CACHE
+
+        resp.headers["Cache-Control"] = cache_control
+        if "Pragma" in resp.headers:
+            del resp.headers["Pragma"]
+        if "Expires" in resp.headers:
+            del resp.headers["Expires"]
         return resp

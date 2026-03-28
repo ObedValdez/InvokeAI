@@ -14,7 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 
 import invokeai.frontend.web as web_dir
 from invokeai.app.api.dependencies import ApiDependencies
-from invokeai.app.api.no_cache_staticfiles import NoCacheStaticFiles
+from invokeai.app.api.no_cache_staticfiles import NoCacheStaticFiles, SmartCacheStaticFiles
 from invokeai.app.api.routers import (
     app_info,
     board_images,
@@ -170,7 +170,7 @@ if app_config.unsafe_disable_picklescan:
     )
 
 try:
-    app.mount("/", NoCacheStaticFiles(directory=Path(web_root_path, "dist"), html=True), name="ui")
+    app.mount("/", SmartCacheStaticFiles(directory=Path(web_root_path, "dist"), html=True), name="ui")
 except RuntimeError:
     logger.warning(f"No UI found at {web_root_path}/dist, skipping UI mount")
 app.mount(

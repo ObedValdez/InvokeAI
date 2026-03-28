@@ -15,17 +15,33 @@ export const useIsMobileLayout = () => {
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(MOBILE_LAYOUT_QUERY);
+    const legacyMediaQuery = mediaQuery as MediaQueryList & {
+      addListener?: (listener: (event: MediaQueryListEvent) => void) => void;
+      removeListener?: (listener: (event: MediaQueryListEvent) => void) => void;
+    };
 
-    const onChange = (event: MediaQueryListEvent) => {
+    const onChange = (event: MediaQueryListEvent | MediaQueryList) => {
       setIsMobileLayout(event.matches);
     };
 
     setIsMobileLayout(mediaQuery.matches);
-    mediaQuery.addEventListener('change', onChange);
 
-    return () => {
-      mediaQuery.removeEventListener('change', onChange);
-    };
+    // Safari versions without MediaQueryList#addEventListener
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', onChange as (event: MediaQueryListEvent) => void);
+      return () => {
+        mediaQuery.removeEventListener('change', onChange as (event: MediaQueryListEvent) => void);
+      };
+    }
+
+    if (typeof legacyMediaQuery.addListener === 'function') {
+      legacyMediaQuery.addListener(onChange as (event: MediaQueryListEvent) => void);
+      return () => {
+        legacyMediaQuery.removeListener?.(onChange as (event: MediaQueryListEvent) => void);
+      };
+    }
+
+    return undefined;
   }, []);
 
   return isMobileLayout;
